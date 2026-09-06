@@ -1,3 +1,4 @@
+import { Asset } from 'expo-asset';
 import { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import * as THREE from 'three';
@@ -48,18 +49,14 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     let width = window.innerWidth;
     let height = window.innerHeight;
 
-    // 1. Scena i kamera
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    const defaultCameraZ = 3.2;
+    const defaultCameraZ = 3.5;
     const zoomedCameraZ = 1.65;
     camera.position.z = defaultCameraZ;
-
-    // Pozycje Y kuli w stanie spoczynku
-    const defaultGlobeY = -0.15;
+    const defaultGlobeY = -0.05;
     const centeredGlobeY = 0.0;
 
-    // 2. Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -72,10 +69,8 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     renderer.domElement.style.height = '100vh';
     renderer.domElement.style.zIndex = '0';
     renderer.domElement.style.cursor = 'grab';
-
     domElement.appendChild(renderer.domElement);
 
-    // 3. Oświetlenie
     const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
     scene.add(ambientLight);
 
@@ -87,9 +82,8 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     backLight.position.set(-5, -2, -4);
     scene.add(backLight);
 
-    // 4. Globus Ziemi
     const globeRadius = 1;
-    const sphereGeo = new THREE.SphereGeometry(globeRadius, 96, 96);
+    const sphereGeo = new THREE.SphereGeometry(globeRadius, 256, 256);
     const earthMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.7,
@@ -99,7 +93,6 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     earthMesh.position.y = defaultGlobeY;
     scene.add(earthMesh);
 
-    // Błękitna poświata atmosferyczna
     const atmosGeo = new THREE.SphereGeometry(globeRadius * 1.025, 64, 64);
     const atmosMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
@@ -110,45 +103,66 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
     earthMesh.add(atmosMesh);
 
-    // Ładowanie tekstury Ziemi
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin('anonymous');
-    textureLoader.load(
-      'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-      (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-        earthMat.map = tex;
-        earthMat.needsUpdate = true;
-      }
-    );
 
-    // 5. Dynamiczny Znacznik Misji (Pin)
+    const loadMainMap = async () => {
+      try {
+        const mapModule = require('../../assets/maps/ZIEMIA8192x4096.png');
+        const asset = Asset.fromModule(mapModule);
+        await asset.downloadAsync();
+        
+        textureLoader.load(asset.localUri || asset.uri, (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          earthMat.map = tex;
+          earthMat.needsUpdate = true;
+        });
+      } catch (error) {
+        console.warn('Nie udało się załadować mapy:', error);
+      }
+    };
+    loadMainMap();
+
+    // 5. Zmodyfikowany Znacznik Misji (pochylony)
     const pinGroup = new THREE.Group();
     pinGroup.visible = false;
     earthMesh.add(pinGroup);
 
-    const pinConeGeo = new THREE.ConeGeometry(0.02, 0.06, 16);
-    pinConeGeo.rotateX(Math.PI);
-    const pinConeMat = new THREE.MeshStandardMaterial({
-      color: 0xef4444,
-      emissive: 0x991b1b,
+    // Grupa trzymająca fizyczny model pinezki, by pochylić ją niezależnie od pierścienia
+    const pinModelGroup = new THREE.Group();
+    pinModelGroup.rotation.z = Math.PI / 7; // Pochylenie o ok. 25 stopni
+    pinGroup.add(pinModelGroup);
+
+    // Cienka, metaliczna igła - czubek dotyka powierzchni (y=0),
+    // szeroki koniec chowa się w środku kulki (y=needleLength)
+    const needleLength = 0.09;
+    const needleMat = new THREE.MeshStandardMaterial({
+      color: 0xd1d5db,
+      metalness: 0.9,
       roughness: 0.3,
     });
-    const pinCone = new THREE.Mesh(pinConeGeo, pinConeMat);
-    pinGroup.add(pinCone);
+    const needleGeo = new THREE.ConeGeometry(0.005, needleLength, 24);
+    needleGeo.rotateX(Math.PI);
+    needleGeo.translate(0, needleLength / 2, 0);
+    const needle = new THREE.Mesh(needleGeo, needleMat);
+    pinModelGroup.add(needle);
 
-    const pinHeadGeo = new THREE.SphereGeometry(0.018, 16, 16);
-    const pinHeadMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      emissive: 0xeab308,
-      roughness: 0.2,
+    // Duża, błyszcząca kulka na górze - "głowa" pinezki, tak jak na zdjęciu
+    const ballRadius = 0.02;
+    const pinMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0x7f1d1d,
+      emissiveIntensity: 0.3,
+      roughness: 0.15,
+      metalness: 0.05,
     });
-    const pinHead = new THREE.Mesh(pinHeadGeo, pinHeadMat);
-    pinHead.position.set(0, 0.03, 0);
-    pinGroup.add(pinHead);
+    const pinHeadGeo = new THREE.SphereGeometry(ballRadius, 32, 32);
+    pinHeadGeo.translate(0, needleLength, 0);
+    const pinHead = new THREE.Mesh(pinHeadGeo, pinMat);
+    pinModelGroup.add(pinHead);
 
-    const ringGeo = new THREE.RingGeometry(0.025, 0.045, 32);
+    const ringGeo = new THREE.RingGeometry(0.015, 0.025, 32);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0xf87171,
       side: THREE.DoubleSide,
@@ -156,7 +170,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
       opacity: 0.9,
     });
     const pulseRing = new THREE.Mesh(ringGeo, ringMat);
-    pinGroup.add(pulseRing);
+    pinGroup.add(pulseRing); // Pierścień zostaje w podstawie, leży płasko na Ziemi
 
     const updatePinPosition = (lat: number, lon: number) => {
       const pos = latLonToVector3(lat, lon, globeRadius * 1.002);
@@ -171,7 +185,6 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
       pinGroup.visible = true;
     };
 
-    // 6. Gwiazdy w tle
     const starGeo = new THREE.BufferGeometry();
     const starCount = 500;
     const starCoords = new Float32Array(starCount * 3);
@@ -185,7 +198,6 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     const starField = new THREE.Points(starGeo, starMat);
     scene.add(starField);
 
-    // 7. Animacja kręcenia, wyhamowywania i centrowania
     let isSpinning = false;
     let isZoomingOut = false;
     let hasSelectedQuest = false;
@@ -201,11 +213,22 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
 
     let onSpinCompleteCallback: ((item: LocationItem) => void) | null = null;
     let currentlySelectedQuest: LocationItem | null = null;
+    
+    let queuedSpin: LocationItem | null = null;
+    let queuedFinishCallback: ((item: LocationItem) => void) | null = null;
 
     const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
     const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
     const spinToLocation = (item: LocationItem, onFinish?: (item: LocationItem) => void) => {
+      if (isSpinning) return;
+      
+      if (isZoomingOut) {
+        queuedSpin = item;
+        queuedFinishCallback = onFinish || null;
+        return;
+      }
+
       isSpinning = true;
       isZoomingOut = false;
       hasSelectedQuest = false;
@@ -256,23 +279,24 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
       });
     }
 
-    // 8. Interakcja ręczna
     let isDragging = false;
     let prevPos = { x: 0, y: 0 };
     let initialPinchDistance = 0;
-
     const minZoom = 1.4;
     const maxZoom = 6.0;
 
+    // Funkcja blokująca wszelkie interakcje użytkownika
+    const isCameraLocked = () => isSpinning || isZoomingOut || hasSelectedQuest;
+
     const onStart = (x: number, y: number) => {
-      if (isSpinning) return;
+      if (isCameraLocked()) return;
       isDragging = true;
       prevPos = { x, y };
       renderer.domElement.style.cursor = 'grabbing';
     };
 
     const onMove = (x: number, y: number) => {
-      if (!isDragging || isSpinning) return;
+      if (!isDragging || isCameraLocked()) return;
       const dx = x - prevPos.x;
       const dy = y - prevPos.y;
 
@@ -291,7 +315,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isSpinning) return;
+      if (isCameraLocked()) return;
       const zoomFactor = e.deltaY * 0.0025;
       camera.position.z = Math.max(minZoom, Math.min(maxZoom, camera.position.z + zoomFactor));
     };
@@ -303,6 +327,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     canvas.addEventListener('wheel', onWheel, { passive: false });
 
     canvas.addEventListener('touchstart', (e) => {
+      if (isCameraLocked()) return;
       if (e.touches.length === 1) {
         onStart(e.touches[0].clientX, e.touches[0].clientY);
       } else if (e.touches.length === 2) {
@@ -315,6 +340,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
+      if (isCameraLocked()) return;
       if (e.touches.length === 1 && isDragging) {
         onMove(e.touches[0].clientX, e.touches[0].clientY);
       } else if (e.touches.length === 2 && initialPinchDistance > 0) {
@@ -327,10 +353,8 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
         initialPinchDistance = currentDistance;
       }
     }, { passive: true });
-
     window.addEventListener('touchend', onEnd);
 
-    // 9. Skalowanie okna
     const handleResize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
@@ -340,7 +364,6 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     };
     window.addEventListener('resize', handleResize);
 
-    // 10. Pętla animacji
     let animId: number;
     let pulseScale = 1;
     let pulseDir = 1;
@@ -362,11 +385,9 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
         const progress = Math.min(elapsed / spinDuration, 1.0);
         const eased = easeOutQuart(progress);
 
-        // Obrót Ziemi
         earthMesh.rotation.y = startRot.y + (finalTargetRot.y - startRot.y) * eased;
         earthMesh.rotation.x = startRot.x + (finalTargetRot.x - startRot.x) * eased;
 
-        // Płynny najazd kamery ORAZ wycentrowanie Ziemi w pionie
         if (progress > 0.4) {
           const zoomProgress = (progress - 0.4) / 0.6;
           const zoomEased = easeInOutCubic(zoomProgress);
@@ -400,6 +421,12 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
           isZoomingOut = false;
           camera.position.z = defaultCameraZ;
           earthMesh.position.y = defaultGlobeY;
+          
+          if (queuedSpin) {
+            spinToLocation(queuedSpin, queuedFinishCallback || undefined);
+            queuedSpin = null;
+            queuedFinishCallback = null;
+          }
         }
       } else if (!isDragging && !hasSelectedQuest) {
         earthMesh.rotation.y += 0.0008;
@@ -423,10 +450,10 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
       earthMat.dispose();
       atmosGeo.dispose();
       atmosMat.dispose();
-      pinConeGeo.dispose();
-      pinConeMat.dispose();
+      needleGeo.dispose();
+      needleMat.dispose();
       pinHeadGeo.dispose();
-      pinHeadMat.dispose();
+      pinMat.dispose();
       ringGeo.dispose();
       ringMat.dispose();
       starGeo.dispose();
