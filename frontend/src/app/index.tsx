@@ -4,13 +4,15 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   const rollActionRef = useRef<((onFinish?: (item: LocationItem) => void) => LocationItem) | null>(null);
-  const resumeActionRef = useRef<(() => void) | null>(null);
+  const resumeActionRef = useRef<((onResetDone?: () => void) => void) | null>(null);
+  const zoomActionRef = useRef<((direction: 'in' | 'out') => void) | null>(null); // <--- NOWA REFERENCJA
 
   const [selectedQuest, setSelectedQuest] = useState<LocationItem | null>(null);
   const [isRolling, setIsRolling] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleRoll = () => {
-    if (rollActionRef.current && !isRolling) {
+    if (rollActionRef.current && !isRolling && !isResetting) {
       setIsRolling(true);
       setSelectedQuest(null);
 
@@ -23,7 +25,11 @@ export default function HomeScreen() {
 
   const handleConfirm = () => {
     if (resumeActionRef.current) {
-      resumeActionRef.current();
+      setIsResetting(true);
+      
+      resumeActionRef.current(() => {
+        setIsResetting(false);
+      });
     }
     setSelectedQuest(null);
   };
@@ -38,12 +44,33 @@ export default function HomeScreen() {
         onResumeTrigger={(fn) => {
           resumeActionRef.current = fn;
         }}
+        onZoomTrigger={(fn) => {
+          zoomActionRef.current = fn; // <--- PRZEKAZANIE FUNKCJI ZOOMA
+        }}
       />
 
       {/* Górny nagłówek */}
       <View style={styles.header} pointerEvents="box-none">
         <Text style={styles.title}>SideQuest</Text>
         <Text style={styles.subtitle}>Wylosuj swoją kolejną misję na globie</Text>
+      </View>
+
+      {/* Kontrolki Zooma po lewej */}
+      <View style={styles.zoomControls} pointerEvents="box-none">
+        <TouchableOpacity 
+          style={styles.zoomButton} 
+          onPress={() => zoomActionRef.current?.('in')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.zoomButtonText}>+</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.zoomButton} 
+          onPress={() => zoomActionRef.current?.('out')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.zoomButtonText}>-</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Dolny panel z powiadomieniem i przyciskiem */}
@@ -68,13 +95,13 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.actionButton, isRolling && styles.buttonDisabled]}
+            style={[styles.actionButton, (isRolling || isResetting) && styles.buttonDisabled]}
             onPress={handleRoll}
-            disabled={isRolling}
+            disabled={isRolling || isResetting}
             activeOpacity={0.8}
           >
             <Text style={styles.actionButtonText}>
-              {isRolling ? 'LOSOWANIE...' : 'ROLL QUEST'}
+              {isRolling ? 'LOSOWANIE...' : (isResetting ? 'POWRÓT...' : 'ROLL QUEST')}
             </Text>
           </TouchableOpacity>
         )}
@@ -106,6 +133,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     marginTop: 6,
+  },
+  zoomControls: {
+    position: 'absolute',
+    left: 16,
+    top: '45%', // Wyśrodkowane w pionie
+    gap: 16,
+    zIndex: 15,
+  },
+  zoomButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderWidth: 1.5,
+    borderColor: '#38bdf8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#38bdf8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  zoomButtonText: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '400',
+    marginTop: -2, // Poprawka centrowania znaków w React Native
   },
   bottomControls: {
     position: 'absolute',
