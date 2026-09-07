@@ -40,7 +40,7 @@ services:
     depends_on:
       - db
       - redis
-    command: fastapi dev api/main.py --host 0.0.0.0 --port 8000
+    command: fastapi dev main.py --host 0.0.0.0
 
 volumes:
   postgres_data:
