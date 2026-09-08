@@ -21,8 +21,8 @@ api.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-    } catch (e) {
-      console.error("Błąd interceptora podczas pobierania tokenu:", e);
+    } catch {
+      // Żądanie bez tokenu może nadal zakończyć się kontrolowanym 401.
     }
     return config;
   },

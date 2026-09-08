@@ -2,6 +2,7 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { LocationProvider } from '../context/LocationContext';
 
 function RootLayoutNav() {
   const { userToken, isLoading } = useAuth();
@@ -36,7 +37,9 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <LocationProvider>
+        <RootLayoutNav />
+      </LocationProvider>
     </AuthProvider>
   );
 }

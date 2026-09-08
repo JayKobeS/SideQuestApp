@@ -2,6 +2,7 @@ import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { api } from '../../api/axios';
+import { CountrySelect } from '../../components/CountrySelect';
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 
@@ -10,6 +11,7 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,6 +29,10 @@ export default function RegisterScreen() {
       setError('Hasło musi mieć co najmniej 6 znaków.');
       return false;
     }
+    if (!countryCode) {
+      setError('Wybierz kraj.');
+      return false;
+    }
     return true;
   };
 
@@ -41,12 +47,12 @@ export default function RegisterScreen() {
         email: email,
         username: username,
         password: password,
+        country_code: countryCode,
         });
 
       // Po udanej rejestracji przenosimy użytkownika na ekran logowania
       router.back();
     } catch (err: any) {
-      console.error(err);
       const errorMessage = err.response?.data?.detail || 'Błąd podczas rejestracji.';
       setError(typeof errorMessage === 'string' ? errorMessage : 'Wystąpił błąd');
     } finally {
@@ -87,6 +93,7 @@ export default function RegisterScreen() {
         onChangeText={setPassword}
         secureTextEntry
       />
+      <CountrySelect value={countryCode} onChange={setCountryCode} required />
 
       <TouchableOpacity 
         style={styles.button} 

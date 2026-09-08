@@ -18,10 +18,12 @@ export const QUEST_LOCATIONS: LocationItem[] = [
   { id: '6', title: 'Tajemnica Amazonii', country: 'Brazylia', lat: -3.4653, lon: -62.2159 },
   { id: '7', title: 'Operowa Nuta', country: 'Australia', lat: -33.8568, lon: 151.2153 },
 ];
+const absoluteFill = { position: 'absolute' as const, top: 0, right: 0, bottom: 0, left: 0 };
 
 interface EarthGlobeProps {
   onRollTrigger?: (rollFn: (onFinish?: (item: LocationItem) => void) => LocationItem) => void;
-  onResumeTrigger?: (resumeFn: () => void) => void;
+  onResumeTrigger?: (resumeFn: (onResetDone?: () => void) => void) => void;
+  onZoomTrigger?: (zoomFn: (direction: 'in' | 'out') => void) => void;
 }
 
 /**
@@ -31,7 +33,7 @@ interface EarthGlobeProps {
  * contract working (so index.tsx never has to branch on platform) but skips the
  * map visual. Swap in @maplibre/maplibre-react-native here if native support is needed later.
  */
-export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) {
+export function EarthGlobe({ onRollTrigger, onResumeTrigger, onZoomTrigger }: EarthGlobeProps) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -46,10 +48,13 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
     }
 
     if (onResumeTrigger) {
-      onResumeTrigger(() => {
+      onResumeTrigger((onResetDone) => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        onResetDone?.();
       });
     }
+
+    onZoomTrigger?.(() => {});
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -65,7 +70,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger }: EarthGlobeProps) 
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...absoluteFill,
     backgroundColor: '#020617',
     zIndex: 0,
     alignItems: 'center',

@@ -40,7 +40,10 @@ services:
     depends_on:
       - db
       - redis
-    command: fastapi dev main.py --host 0.0.0.0
+    # W środowisku developerskim backend zawsze aktualizuje tę samą bazę,
+    # z której następnie korzysta. Eliminuje to sytuację, w której aplikacja
+    # startuje z nowszym modelem niż struktura tabel w PostgreSQL.
+    command: sh -c "alembic upgrade head && fastapi dev main.py --host 0.0.0.0"
 
 volumes:
   postgres_data:

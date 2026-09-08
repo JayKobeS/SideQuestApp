@@ -31,6 +31,7 @@ interface EarthGlobeProps {
 
 const DEFAULT_CENTER: [number, number] = [15, 20];
 const DEFAULT_ZOOM = 2.2;
+const absoluteFill = { position: 'absolute' as const, top: 0, right: 0, bottom: 0, left: 0 };
 
 // ==========================================
 // ⚙️ KONFIGURACJA PRZYBLIŻENIA I PRĘDKOŚCI
@@ -357,7 +358,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger, onZoomTrigger}: Ear
 
   return (
     <View style={styles.container}>
-      <View ref={containerRef as any} style={StyleSheet.absoluteFillObject} />
+      <View ref={containerRef as any} style={absoluteFill} />
       <Text style={styles.attribution}>Esri, Maxar, Earthstar Geographics</Text>
     </View>
   );
@@ -365,7 +366,7 @@ export function EarthGlobe({ onRollTrigger, onResumeTrigger, onZoomTrigger}: Ear
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...absoluteFill,
     backgroundColor: '#020617',
     zIndex: 0,
   },

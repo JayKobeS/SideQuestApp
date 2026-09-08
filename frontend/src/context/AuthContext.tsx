@@ -46,8 +46,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (token) {
           setUserToken(token);
         }
-      } catch (e) {
-        console.error("Błąd podczas ładowania tokenu:", e);
+      } catch {
+        // Brak tokenu oznacza po prostu ekran logowania.
       } finally {
         setIsLoading(false);
       }

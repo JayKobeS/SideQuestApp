@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRecovery, setShowRecovery] = useState(false);
 
   const handleLogin = async () => {
     if (email === '' || password === '') {
@@ -23,6 +24,7 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     setError('');
+    setShowRecovery(false);
 
     try {
       // FastAPI zazwyczaj oczekuje 'username' i 'password' jako form-data przy logowaniu
@@ -43,10 +45,15 @@ export default function LoginScreen() {
       // Przekierowanie do głównej części aplikacji po zalogowaniu
       router.replace('/'); 
     } catch (err: any) {
-      console.error(err);
       // Wyciągnięcie błędu zwracanego przez FastAPI (np. "Incorrect username or password")
-      const errorMessage = err.response?.data?.detail || 'Błąd logowania. Sprawdź dane.';
-      setError(typeof errorMessage === 'string' ? errorMessage : 'Wystąpił błąd');
+      const detail = err.response?.data?.detail;
+      const code = typeof detail === 'object' ? detail?.code : undefined;
+      const errorMessage = typeof detail === 'object' ? detail?.message : detail;
+      if (code === 'PASSWORD_RESET_AVAILABLE') setShowRecovery(true);
+      if (code === 'DATABASE_MIGRATION_REQUIRED') setError('Serwer wymaga aktualizacji bazy danych. Uruchom migracje backendu.');
+      else if (code === 'INVALID_EMAIL_FORMAT') setError('Podaj poprawny adres e-mail.');
+      else if (code === 'INVALID_CREDENTIALS') setError('Nieprawidłowy e-mail lub hasło.');
+      else setError(typeof errorMessage === 'string' ? errorMessage : 'Błąd logowania. Sprawdź dane.');
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +102,12 @@ export default function LoginScreen() {
           <ThemedText type="link">Nie masz konta? Zarejestruj się</ThemedText>
         </TouchableOpacity>
       </Link>
+
+      {showRecovery && (
+        <Link href="/(auth)/reset-password" asChild>
+          <TouchableOpacity style={styles.recoveryButton}><ThemedText type="link">Nie pamiętasz hasła? Odzyskaj dostęp</ThemedText></TouchableOpacity>
+        </Link>
+      )}
     </ThemedView>
   );
 }
@@ -133,6 +146,10 @@ const styles = StyleSheet.create({
   },
   linkButton: {
     alignItems: 'center',
+  },
+  recoveryButton: {
+    alignItems: 'center',
+    marginTop: 16,
   },
   errorText: {
     color: 'red',

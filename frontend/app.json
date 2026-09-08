@@ -33,7 +33,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SideQuest używa lokalizacji tylko podczas korzystania z aplikacji, aby dopasować misje do kraju, w którym się znajdujesz."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
