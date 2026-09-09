@@ -40,7 +40,7 @@ interface ProfileDrawerProps {
 }
 
 const emptyProfile: Profile = {
-  username: 'Odkrywca',
+  username: 'Ładowanie…',
   email: '',
   level: 1,
   xp: 0,

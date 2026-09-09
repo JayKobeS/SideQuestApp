@@ -1,9 +1,9 @@
+import { api } from '@/api/axios';
 import { EarthGlobe, LocationItem } from '@/components/EarthGlobe';
 import { ProfileDrawer } from '@/components/ProfileDrawer';
-import { api } from '@/api/axios';
 import { useLocation } from '@/context/LocationContext';
-import { useEffect, useRef, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const TRAVEL_PROMPT_SEEN_KEY = 'sidequest.travel_prompt_seen';
@@ -23,9 +23,9 @@ async function rememberTravelPrompt() {
 
 export default function HomeScreen() {
   const { location, status: locationStatus, requestLocation } = useLocation();
-  const rollActionRef = useRef<((onFinish?: (item: LocationItem) => void) => LocationItem) | null>(null);
-  const resumeActionRef = useRef<((onResetDone?: () => void) => void) | null>(null);
-  const zoomActionRef = useRef<((direction: 'in' | 'out') => void) | null>(null); // <--- NOWA REFERENCJA
+  const rollActionRef = useRef<(() => void) | null>(null);
+  const resumeActionRef = useRef<(() => void) | null>(null);
+  const zoomActionRef = useRef<((direction: 'in' | 'out') => void) | null>(null);
 
   const [selectedQuest, setSelectedQuest] = useState<LocationItem | null>(null);
   const [isRolling, setIsRolling] = useState(false);
@@ -33,14 +33,22 @@ export default function HomeScreen() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isTravelPromptOpen, setIsTravelPromptOpen] = useState(false);
   const [isSavingTravelMode, setIsSavingTravelMode] = useState(false);
+  const [isMapLoading, setIsMapLoading] = useState(true);
   const [travelPromptError, setTravelPromptError] = useState<string | null>(null);
+  const [profileSummary, setProfileSummary] = useState({ username: '', level: 1, xp: 0 });
 
   useEffect(() => {
     let mounted = true;
 
     const checkWhetherUserIsAbroad = async () => {
       try {
-        const profileResponse = await api.get<{ country_code?: string | null }>('/auth/me');
+        const profileResponse = await api.get<{ country_code?: string | null; username?: string; level?: number; xp?: number }>('/auth/me');
+        setProfileSummary((current) => ({
+          ...current,
+          username: profileResponse.data.username || current.username,
+          level: profileResponse.data.level || current.level,
+          xp: profileResponse.data.xp || current.xp,
+        }));
         const homeCountry = profileResponse.data.country_code?.toUpperCase();
         if (!homeCountry) return;
 
@@ -85,10 +93,7 @@ export default function HomeScreen() {
       setIsRolling(true);
       setSelectedQuest(null);
 
-      rollActionRef.current((finishedQuest) => {
-        setSelectedQuest(finishedQuest);
-        setIsRolling(false);
-      });
+      rollActionRef.current();
     }
   };
 
@@ -96,9 +101,7 @@ export default function HomeScreen() {
     if (resumeActionRef.current) {
       setIsResetting(true);
       
-      resumeActionRef.current(() => {
-        setIsResetting(false);
-      });
+      resumeActionRef.current();
     }
     setSelectedQuest(null);
   };
@@ -107,6 +110,12 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* 3D Globus */}
       <EarthGlobe
+        onLoadingChange={setIsMapLoading}
+        onRollFinished={(finishedQuest) => {
+          setSelectedQuest(finishedQuest);
+          setIsRolling(false);
+        }}
+        onResetFinished={() => setIsResetting(false)}
         onRollTrigger={(fn) => {
           rollActionRef.current = fn;
         }}
@@ -114,48 +123,55 @@ export default function HomeScreen() {
           resumeActionRef.current = fn;
         }}
         onZoomTrigger={(fn) => {
-          zoomActionRef.current = fn; // <--- PRZEKAZANIE FUNKCJI ZOOMA
+          zoomActionRef.current = fn;
         }}
       />
 
-      {/* Górny nagłówek */}
-      <View style={[styles.header, styles.pointerEventsBoxNone]}>
-        <Text style={styles.title}>SideQuest</Text>
-        <Text style={styles.subtitle}>Wylosuj swoją kolejną misję na globie</Text>
+      {/* Górne menu aplikacji */}
+      <View style={styles.topMenu}>
+        <View style={styles.topMenuSideGroup}>
+          <TouchableOpacity style={styles.topMenuItem} disabled accessibilityLabel="Osiągnięcia — wkrótce"><Text style={styles.topMenuIcon}>★</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.topMenuItem} disabled accessibilityLabel="Znajomi — wkrótce"><Text style={styles.topMenuIcon}>♟</Text></TouchableOpacity>
+        </View>
+        <TouchableOpacity onPress={() => setIsProfileOpen(true)} activeOpacity={0.84} accessibilityLabel="Otwórz profil">
+          <View style={styles.profileSummaryCard}>
+            <View style={styles.profileSummaryAvatar}><Text style={styles.profileSummaryInitials}>{(profileSummary.username || '…').slice(0, 2).toUpperCase()}</Text></View>
+            <View style={styles.profileSummaryDetails}>
+              <Text style={styles.profileSummaryName}>{profileSummary.username || 'ŁADOWANIE...'}</Text>
+              <Text style={styles.profileSummaryLevel}>POZIOM {profileSummary.level}</Text>
+              <View style={styles.profileSummaryTrack}><View style={[styles.profileSummaryProgress, { width: `${Math.min(100, profileSummary.xp % 100)}%` }]} /></View>
+            </View>
+          </View>
+        </TouchableOpacity>
+        <View style={styles.topMenuSideGroup}>
+          <TouchableOpacity style={styles.topMenuItem} disabled accessibilityLabel="Historia questów — wkrótce"><Text style={styles.topMenuIcon}>◷</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.topMenuItem} disabled accessibilityLabel="Powiadomienia — wkrótce"><Text style={styles.topMenuIcon}>✦</Text></TouchableOpacity>
+        </View>
       </View>
 
-      {!location && (
+      {!location && locationStatus !== 'loading' && locationStatus !== 'granted' && (
         <View style={styles.locationNotice}>
           <Text style={styles.locationNoticeText}>{locationStatus === 'denied' ? 'Lokalizacja jest wyłączona — misje terenowe nie będą dostępne.' : 'Udostępnij lokalizację, aby dopasować misje do kraju.'}</Text>
-          {locationStatus !== 'denied' && <TouchableOpacity onPress={requestLocation} disabled={locationStatus === 'loading'} style={styles.locationButton}><Text style={styles.locationButtonText}>{locationStatus === 'loading' ? 'SPRAWDZANIE...' : 'UDOSTĘPNIJ'}</Text></TouchableOpacity>}
+          {locationStatus !== 'denied' && <TouchableOpacity onPress={requestLocation} style={styles.locationButton}><Text style={styles.locationButtonText}>UDOSTĘPNIJ</Text></TouchableOpacity>}
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.profileButton}
-        onPress={() => setIsProfileOpen(true)}
-        activeOpacity={0.8}
-        accessibilityLabel="Otwórz profil"
-      >
-        <View style={styles.profileAvatar}><Text style={styles.profileInitials}>SQ</Text></View>
-        <View style={styles.profileStatus} />
-      </TouchableOpacity>
-
-      {/* Kontrolki Zooma po lewej */}
-      <View style={[styles.zoomControls, styles.pointerEventsBoxNone]}>
-        <TouchableOpacity 
-          style={styles.zoomButton} 
+      <View style={styles.zoomControls}>
+        <TouchableOpacity
+          style={[styles.zoomButton, (isMapLoading || isRolling || isResetting || !!selectedQuest) && styles.buttonDisabled]}
           onPress={() => zoomActionRef.current?.('in')}
-          activeOpacity={0.7}
+          disabled={isMapLoading || isRolling || isResetting || !!selectedQuest}
+          accessibilityLabel="Przybliż mapę"
         >
           <Text style={styles.zoomButtonText}>+</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.zoomButton} 
+        <TouchableOpacity
+          style={[styles.zoomButton, (isMapLoading || isRolling || isResetting || !!selectedQuest) && styles.buttonDisabled]}
           onPress={() => zoomActionRef.current?.('out')}
-          activeOpacity={0.7}
+          disabled={isMapLoading || isRolling || isResetting || !!selectedQuest}
+          accessibilityLabel="Oddal mapę"
         >
-          <Text style={styles.zoomButtonText}>-</Text>
+          <Text style={styles.zoomButtonText}>−</Text>
         </TouchableOpacity>
       </View>
 
@@ -181,13 +197,13 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.actionButton, (isRolling || isResetting) && styles.buttonDisabled]}
+            style={[styles.actionButton, (isMapLoading || isRolling || isResetting) && styles.buttonDisabled]}
             onPress={handleRoll}
-            disabled={isRolling || isResetting}
+            disabled={isMapLoading || isRolling || isResetting}
             activeOpacity={0.8}
           >
             <Text style={styles.actionButtonText}>
-              {isRolling ? 'LOSOWANIE...' : (isResetting ? 'POWRÓT...' : 'ROLL QUEST')}
+              {isMapLoading ? 'ŁADOWANIE...' : (isRolling ? 'LOSOWANIE...' : (isResetting ? 'POWRÓT...' : 'ROLL QUEST'))}
             </Text>
           </TouchableOpacity>
         )}
@@ -212,6 +228,8 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {isMapLoading && <View style={styles.mapLoadingBlocker} pointerEvents="auto" />}
     </View>
   );
 }
@@ -222,25 +240,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
   },
   pointerEventsBoxNone: { pointerEvents: 'box-none' },
-  header: {
-    position: 'absolute',
-    top: 50,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginTop: 6,
-  },
+  mapLoadingBlocker: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100 },
+  topMenu: { position: 'absolute', top: 24, alignSelf: 'center', zIndex: 30, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 7, borderRadius: 25, backgroundColor: 'rgba(2, 6, 23, 0.9)', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.28)', boxShadow: '0px 5px 16px rgba(0, 0, 0, 0.45)' },
+  topMenuSideGroup: { flexDirection: 'row', gap: 2 },
+  topMenuItem: { width: 34, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  topMenuIcon: { color: '#cbd5e1', fontSize: 21 },
+  profileSummaryCard: { flexDirection: 'row', alignItems: 'center', minWidth: 158, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 18, backgroundColor: 'rgba(15, 23, 42, 0.92)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.42)' },
+  profileSummaryAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2563eb', borderWidth: 1.5, borderColor: '#7dd3fc', alignItems: 'center', justifyContent: 'center' },
+  profileSummaryInitials: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  profileSummaryDetails: { width: 108, marginLeft: 8 },
+  profileSummaryName: { color: '#f8fafc', fontSize: 11, fontWeight: '800' },
+  profileSummaryLevel: { color: '#7dd3fc', fontSize: 8, fontWeight: '800', letterSpacing: 0.5, marginTop: 2 },
+  profileSummaryTrack: { height: 3, marginTop: 5, borderRadius: 2, overflow: 'hidden', backgroundColor: 'rgba(148, 163, 184, 0.22)' },
+  profileSummaryProgress: { height: '100%', minWidth: 2, borderRadius: 2, backgroundColor: '#38d7f5' },
+  topMenuCamera: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', borderWidth: 3, borderColor: '#0f172a', boxShadow: '0px 0px 12px rgba(56, 189, 248, 0.7)' },
+  topMenuCameraIcon: { color: '#020617', fontSize: 17 },
+  topMenuProfile: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb', borderWidth: 1.5, borderColor: '#7dd3fc' },
+  topMenuProfileIcon: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  topMenuLevelTrack: { position: 'absolute', left: 7, right: 7, bottom: 4, height: 3, borderRadius: 2, backgroundColor: 'rgba(2, 6, 23, 0.45)', overflow: 'hidden' },
+  topMenuLevelProgress: { height: '100%', minWidth: 2, borderRadius: 2, backgroundColor: '#67e8f9' },
   zoomControls: {
     position: 'absolute',
     left: 16,
@@ -265,46 +283,6 @@ const styles = StyleSheet.create({
   locationNoticeText: { flex: 1, color: '#cbd5e1', fontSize: 11, lineHeight: 15, marginRight: 10 },
   locationButton: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9, backgroundColor: '#0369a1' },
   locationButtonText: { color: '#e0f2fe', fontSize: 9, fontWeight: '800', letterSpacing: 0.7 },
-  profileButton: {
-    position: 'absolute',
-    top: 38,
-    right: 28,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderWidth: 1.5,
-    borderColor: '#38bdf8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 30,
-    boxShadow: '0px 4px 10px rgba(56, 189, 248, 0.35)',
-  },
-  profileAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileInitials: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  profileStatus: {
-    position: 'absolute',
-    right: 3,
-    bottom: 3,
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: '#34d399',
-    borderWidth: 2,
-    borderColor: '#020617',
-  },
   zoomButton: {
     width: 48,
     height: 48,
@@ -322,6 +300,10 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: -2, // Poprawka centrowania znaków w React Native
   },
+  leftTabRail: { position: 'absolute', left: 16, top: '27%', gap: 12, zIndex: 16, pointerEvents: 'box-none' },
+  rightTabRail: { position: 'absolute', right: 16, top: '42%', gap: 12, zIndex: 16, pointerEvents: 'box-none' },
+  sideTabButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(2, 6, 23, 0.76)', borderWidth: 1, borderColor: 'rgba(56, 189, 248, 0.62)', boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)', opacity: 0.86 },
+  sideTabIcon: { color: '#7dd3fc', fontSize: 21, fontWeight: '700' },
   bottomControls: {
     position: 'absolute',
     bottom: 40,

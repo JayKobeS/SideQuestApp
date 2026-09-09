@@ -29,7 +29,7 @@ export default function LoginScreen() {
     try {
       // FastAPI zazwyczaj oczekuje 'username' i 'password' jako form-data przy logowaniu
       const formData = new URLSearchParams();
-      formData.append('username', email); // Przekazujemy email jako username
+      formData.append('username', email.trim().toLowerCase());
       formData.append('password', password);
 
       // UWAGA: Upewnij się, że '/auth/login' to poprawna ścieżka w Twoim backendzie
@@ -46,6 +46,10 @@ export default function LoginScreen() {
       router.replace('/'); 
     } catch (err: any) {
       // Wyciągnięcie błędu zwracanego przez FastAPI (np. "Incorrect username or password")
+      if (!err.response) {
+        setError('Nie można połączyć się z serwerem. Sprawdź połączenie z internetem lub adres API.');
+        return;
+      }
       const detail = err.response?.data?.detail;
       const code = typeof detail === 'object' ? detail?.code : undefined;
       const errorMessage = typeof detail === 'object' ? detail?.message : detail;

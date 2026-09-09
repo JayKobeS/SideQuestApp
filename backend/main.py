@@ -2,7 +2,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import admin, auth, quests
+from routers import admin, auth, countries, quests
 
 app = FastAPI(title="SideQuest API")
 
@@ -20,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(countries.router)
 app.include_router(quests.router)
 app.include_router(admin.router)
 

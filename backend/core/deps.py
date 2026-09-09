@@ -7,7 +7,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import jwt
-from uuid import UUID
 
 from core.database import get_db
 from core.security import SECRET_KEY, ALGORITHM
@@ -28,8 +27,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
-        token_data_id = UUID(user_id_str)
-    except jwt.PyJWTError:
+        token_data_id = int(user_id_str)
+    except (jwt.PyJWTError, TypeError, ValueError):
         raise credentials_exception
 
     try:

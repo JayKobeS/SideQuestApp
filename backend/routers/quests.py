@@ -1,6 +1,5 @@
 from datetime import date, datetime, time, timedelta, timezone
 from random import choice
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
@@ -210,7 +209,7 @@ async def list_my_quests(
 
 
 async def submit_quest_for_review(
-    quest_id: UUID,
+    quest_id: int,
     submission: QuestSubmissionRequest,
     current_user: User,
     db: AsyncSession,
@@ -235,7 +234,7 @@ async def submit_quest_for_review(
 
 @router.post("/{quest_id}/submit", response_model=QuestResponse)
 async def submit_quest(
-    quest_id: UUID,
+    quest_id: int,
     submission: QuestSubmissionRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -245,7 +244,7 @@ async def submit_quest(
 
 @router.post("/{quest_id}/complete", response_model=QuestResponse, deprecated=True)
 async def complete_quest_legacy(
-    quest_id: UUID,
+    quest_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

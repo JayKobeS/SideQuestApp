@@ -1,10 +1,10 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 from core.database import Base
+from .country import Country
 
 # Importujemy model Quest tylko na potrzeby typowania statycznego
 if TYPE_CHECKING:
@@ -16,10 +16,10 @@ class User(Base):
         CheckConstraint("role IN ('user', 'moderator', 'admin', 'owner')", name="ck_users_role"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column("serial_id", Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    country_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    country_code: Mapped[str | None] = mapped_column(ForeignKey("countries.code", ondelete="SET NULL"), nullable=True)
     # Tryb wyjazdowy jest ustawiany świadomie przez użytkownika po wejściu do aplikacji.
     # Licznik chroni przed wielokrotnym przełączaniem trybu w jednym miesiącu.
     is_abroad: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -53,3 +53,4 @@ class User(Base):
         foreign_keys="Quest.user_id",
         cascade="all, delete-orphan"
     )
+    country_ref: Mapped["Country | None"] = relationship(back_populates="users")

@@ -11,12 +11,14 @@ interface CountrySelectProps {
 export function CountrySelect({ value, onChange, required = false }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const countries = useMemo(() => COUNTRY_CODES.filter((code) => `${countryName(code)} ${code}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl'))), [query]);
+  const countries = useMemo(() => COUNTRY_CODES
+    .filter((code) => `${countryName(code)} ${code}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl')))
+    .sort((first, second) => countryName(first).localeCompare(countryName(second), 'pl')), [query]);
   const choose = (code: string | null) => { onChange(code); setQuery(''); setOpen(false); };
 
   return <>
     <TouchableOpacity onPress={() => setOpen(true)} style={styles.trigger} activeOpacity={0.8}>
-      <View><Text style={styles.value}>{value ? countryName(value) : 'Wybierz kraj'}</Text>{value && <Text style={styles.code}>{value}</Text>}</View><Text style={styles.arrow}>⌄</Text>
+      <View><Text style={styles.value}>{value ? countryName(value) : 'Wybierz kraj'}</Text></View><Text style={styles.arrow}>⌄</Text>
     </TouchableOpacity>
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <View style={styles.backdrop}><View style={styles.modal}>
@@ -24,7 +26,7 @@ export function CountrySelect({ value, onChange, required = false }: CountrySele
         <TextInput value={query} onChangeText={setQuery} placeholder="Szukaj kraju" placeholderTextColor="#64748b" style={styles.search} autoFocus />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           {!required && <TouchableOpacity onPress={() => choose(null)} style={styles.option}><Text style={styles.optionName}>Dowolny kraj</Text></TouchableOpacity>}
-          {countries.map((code) => <TouchableOpacity key={code} onPress={() => choose(code)} style={[styles.option, value === code && styles.optionSelected]}><Text style={styles.optionName}>{countryName(code)}</Text><Text style={styles.optionCode}>{code}</Text></TouchableOpacity>)}
+          {countries.map((code) => <TouchableOpacity key={code} onPress={() => choose(code)} style={[styles.option, value === code && styles.optionSelected]}><Text style={styles.optionName}>{countryName(code)}</Text></TouchableOpacity>)}
         </ScrollView>
       </View></View>
     </Modal>

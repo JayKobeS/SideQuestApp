@@ -1,5 +1,4 @@
 from pydantic import BaseModel, EmailStr, Field
-from uuid import UUID
 from datetime import date, datetime
 from typing import Literal
 from pydantic import field_validator
@@ -27,8 +26,8 @@ class QuestBase(BaseModel):
     radius_km: int | None = None
 
 class QuestResponse(QuestBase):
-    id: UUID
-    template_id: UUID | None = None
+    id: int
+    template_id: int | None = None
     status: QuestStatus
     is_completed: bool
     expires_at: datetime
@@ -36,7 +35,7 @@ class QuestResponse(QuestBase):
     submitted_at: datetime | None = None
     submission_note: str | None = None
     reviewed_at: datetime | None = None
-    reviewed_by_id: UUID | None = None
+    reviewed_by_id: int | None = None
     review_note: str | None = None
     created_at: datetime
 
@@ -106,7 +105,7 @@ class QuestTemplateUpdate(BaseModel):
         return normalize_country_code(value) if value else None
 
 class QuestTemplateResponse(QuestTemplateBase):
-    id: UUID
+    id: int
     is_active: bool
     created_at: datetime
 
@@ -153,7 +152,7 @@ class LocationLookupResponse(BaseModel):
     country_code: str
 
 class UserResponse(BaseModel):
-    id: UUID
+    id: int
     username: str
     email: EmailStr
     country_code: str | None = None
@@ -169,7 +168,7 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 class UserAdminResponse(BaseModel):
-    id: UUID
+    id: int
     username: str
     email: EmailStr
     country_code: str | None = None
@@ -183,6 +182,14 @@ class UserAdminResponse(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: UserRole
+
+
+class CountryResponse(BaseModel):
+    id: int
+    code: str
+
+    class Config:
+        from_attributes = True
 
 # ==========================
 # SCHEMATY DLA AUTORYZACJI
