@@ -259,7 +259,13 @@ export default function HomeScreen() {
       />
 
       <View style={[styles.top, { top: Math.max(insets.top, 12) + 4 }]} pointerEvents="box-none">
-        <Text style={styles.logo}>sidequest<Text style={styles.logoDot}>.</Text></Text>
+        <View style={styles.logoWrapper}>
+          <Text style={styles.logoText}>
+            s{'\u0131'}dequest<Text style={styles.logoDot}>.</Text>
+          </Text>
+          {/* Absolutnie pozycjonowana kropka nad literą "ı" */}
+          <View style={styles.floatingDot} />
+        </View>
         <View style={styles.scopeIsland}>
           {scopes.map(item => (
             <Pressable
@@ -443,7 +449,29 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050816' },
   top: { position: 'absolute', left: 16, right: 16, alignItems: 'center', gap: 10 },
   logo: { color: '#fff', fontSize: 24, fontWeight: '800', letterSpacing: -1.4 },
-  logoDot: { color: '#8974e8' },
+  logoWrapper: {
+      alignSelf: 'center', // Sprawia, że View ma szerokość idealnie dopasowaną do tekstu
+      position: 'relative',
+      justifyContent: 'center',
+    },
+    logoText: {
+      fontSize: 24, // Twoja docelowa wielkość
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: -0.5,
+    },
+    logoDot: {
+      color: '#A855F7',
+    },
+    floatingDot: {
+      position: 'absolute',
+      top: 6,      // Wysokość kropki (zmniejsz, by poszła do góry)
+      left: 13,    // Przesunięcie w poziomie (dostosuj, by usiadła nad "ı")
+      width: 4.5,
+      height: 4.5,
+      borderRadius: 2.5,
+      backgroundColor: '#A855F7',
+    },
   scopeIsland: { flexDirection: 'row', width: '100%', maxWidth: 320, height: 42, padding: 4, borderRadius: 23, backgroundColor: 'rgba(247,245,240,.94)', boxShadow: '0 6px 18px rgba(0,0,0,.16)' },
   scopeButton: { flex: 1, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   scopeActive: { backgroundColor: '#6550ce' },
