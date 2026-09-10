@@ -38,11 +38,11 @@ async def create_template(
     db: AsyncSession = Depends(get_db),
 ):
     values = template_data.model_dump()
-    if values["category"] != "daily":
+    if values["category"] in {"local", "country", "world"}:
         if values.get("lat") is None or values.get("lon") is None:
             raise HTTPException(status_code=422, detail={"code": "POINT_REQUIRED", "message": "Dla misji terenowej wskaż punkt na mapie."})
         values["country_code"] = await resolve_country_from_coordinates(values["lat"], values["lon"])
-    else:
+    elif values.get("category", "daily") == "daily":
         values.update({"lat": None, "lon": None, "country_code": None, "city": None, "radius_km": None})
     template = QuestTemplate(**values)
     db.add(template)
@@ -64,13 +64,13 @@ async def update_template(
 
     values = template_data.model_dump(exclude_unset=True)
     next_category = values.get("category", template.category)
-    if next_category != "daily":
+    if next_category in {"local", "country", "world"} and any(key in values for key in ("lat", "lon", "category")):
         next_lat = values.get("lat", template.lat)
         next_lon = values.get("lon", template.lon)
         if next_lat is None or next_lon is None:
             raise HTTPException(status_code=422, detail={"code": "POINT_REQUIRED", "message": "Dla misji terenowej wskaż punkt na mapie."})
         values["country_code"] = await resolve_country_from_coordinates(next_lat, next_lon)
-    else:
+    elif next_category == "daily":
         values.update({"lat": None, "lon": None, "country_code": None, "city": None, "radius_km": None})
     for field, value in values.items():
         setattr(template, field, value)
@@ -97,11 +97,16 @@ async def review_quest(
     reviewer: User = Depends(require_moderator),
     db: AsyncSession = Depends(get_db),
 ):
-    quest = await db.scalar(select(Quest).where(Quest.id == quest_id))
+    quest = await db.scalar(select(Quest).where(Quest.id == quest_id).with_for_update().execution_options(populate_existing=True))
     if not quest:
         raise HTTPException(status_code=404, detail="Nie znaleziono misji.")
     if quest.status != "pending_review":
         raise HTTPException(status_code=409, detail="Ta misja nie czeka na weryfikację.")
+
+    if review.decision == "approved":
+        owner = await db.scalar(select(User).where(User.id == quest.user_id).with_for_update().execution_options(populate_existing=True))
+        owner.xp += quest.xp_reward
+        owner.level = 1 + owner.xp // 1000
 
     quest.status = review.decision
     quest.is_completed = review.decision == "approved"

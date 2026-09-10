@@ -6,14 +6,14 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Role = 'user' | 'moderator' | 'admin' | 'owner';
-type Category = 'daily' | 'local' | 'country' | 'world';
+type Category = 'daily' | 'local' | 'country' | 'world' | 'achievement';
 type Difficulty = 'easy' | 'medium' | 'hard';
 type QuestTemplate = { id: string; title: string; description: string; category: Category; difficulty: Difficulty; radius_km: number | null; lat: number | null; lon: number | null; country_code: string | null; is_active: boolean };
 type PendingQuest = { id: string; title: string; description: string; submission_note: string | null };
 type AdminUser = { id: string; username: string; email: string; role: Role };
 type Profile = { role: Role };
 
-const categoryLabels: Record<Category, string> = { daily: 'Dzienna', local: 'Lokalna', country: 'Krajowa', world: 'Światowa' };
+const categoryLabels: Record<Category, string> = { daily: 'Dzienna', local: 'Lokalna', country: 'Krajowa', world: 'Światowa', achievement: 'Osiągnięcie' };
 const difficultyLabels: Record<Difficulty, string> = { easy: 'Łatwa', medium: 'Średnia', hard: 'Trudna' };
 const roleLabels: Record<Role, string> = { user: 'Użytkownik', moderator: 'Moderator', admin: 'Admin', owner: 'Owner' };
 
@@ -27,7 +27,9 @@ export default function AdminScreen() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Category>('daily');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
-  const [radius, setRadius] = useState('40');
+  const [xpReward, setXpReward] = useState('100');
+  const [medal, setMedal] = useState('bronze');
+  const [radius, setRadius] = useState('30');
   const [point, setPoint] = useState<{ lat: number; lon: number } | null>(null);
   const [pointPickerOpen, setPointPickerOpen] = useState(false);
   const [draftPoint, setDraftPoint] = useState<{ lat: number; lon: number } | null>(null);
@@ -53,14 +55,15 @@ export default function AdminScreen() {
 
   const createTemplate = async () => {
     if (title.trim().length < 3 || description.trim().length < 10) return setError('Tytuł musi mieć min. 3 znaki, a opis min. 10 znaków.');
-    const localRadius = Number(radius);
+    const localRadius = 30;
+    if (!Number.isInteger(Number(xpReward)) || Number(xpReward) < 1 || Number(xpReward) > 100000) return setError('Podaj nagrodę EXP od 1 do 100000.');
     if (category === 'local' && (!Number.isInteger(localRadius) || localRadius < 1 || localRadius > 100)) return setError('Dla misji lokalnej podaj promień od 1 do 100 km.');
     setSaving(true); setError('');
     try {
-      const response = await api.post<QuestTemplate>('/admin/quest-templates', { title: title.trim(), description: description.trim(), category, difficulty, lat: point?.lat ?? null, lon: point?.lon ?? null, radius_km: category === 'local' ? localRadius : null });
+      const response = await api.post<QuestTemplate>('/admin/quest-templates', { title: title.trim(), description: description.trim(), category, difficulty, xp_reward: Number(xpReward), medal: category === 'achievement' ? medal : null, lat: point?.lat ?? null, lon: point?.lon ?? null, radius_km: category === 'local' ? localRadius : null });
       setTemplates((current) => [response.data, ...current]);
-      setTitle(''); setDescription(''); setCategory('daily'); setDifficulty('easy'); setRadius('40'); setPoint(null);
-    } catch (requestError: any) { setError(requestError.response?.data?.detail || 'Nie udało się zapisać challenge’u.'); }
+      setTitle(''); setDescription(''); setCategory('daily'); setDifficulty('easy'); setRadius('30'); setPoint(null);
+    } catch (requestError: any) { setError(typeof requestError.response?.data?.detail === 'string' ? requestError.response.data.detail : requestError.response?.data?.detail?.message || 'Nie udało się zapisać challenge’u.'); }
     finally { setSaving(false); }
   };
 
@@ -98,8 +101,10 @@ export default function AdminScreen() {
           <TextInput style={[styles.input, styles.descriptionInput]} value={description} onChangeText={setDescription} placeholder="Opis — co użytkownik ma zrobić?" placeholderTextColor="#64748b" multiline textAlignVertical="top" maxLength={500} />
           <Text style={styles.fieldLabel}>TYP MISJI</Text><View style={styles.choiceRow}>{(Object.keys(categoryLabels) as Category[]).map((value) => <Choice key={value} label={categoryLabels[value]} active={category === value} onPress={() => setCategory(value)} />)}</View>
           <Text style={styles.fieldLabel}>TRUDNOŚĆ</Text><View style={styles.choiceRow}>{(Object.keys(difficultyLabels) as Difficulty[]).map((value) => <Choice key={value} label={difficultyLabels[value]} active={difficulty === value} onPress={() => setDifficulty(value)} />)}</View>
+          <Text style={styles.fieldLabel}>NAGRODA EXP</Text><TextInput style={styles.input} value={xpReward} onChangeText={setXpReward} keyboardType="number-pad" />
+          {category === 'achievement' && <View style={styles.choiceRow}>{[['bronze', 'Brąz'], ['silver', 'Srebro'], ['gold', 'Złoto'], ['platinum', 'Platyna']].map(([value, label]) => <Choice key={value} label={label} active={medal === value} onPress={() => setMedal(value)} />)}</View>}
           {category !== 'daily' && <><Text style={styles.fieldLabel}>PUNKT MISJI</Text><TouchableOpacity style={styles.pointButton} onPress={() => { setDraftPoint(point); setPointPickerOpen(true); }}><Text style={styles.pointButtonText}>{point ? `PUNKT: X ${point.lat.toFixed(5)} · Y ${point.lon.toFixed(5)}` : 'WYBIERZ PUNKT NA MAPIE'}</Text></TouchableOpacity><Text style={styles.inputHint}>Kraj zostanie ustalony automatycznie po wyborze punktu.</Text></>}
-          {category === 'local' && <><Text style={styles.fieldLabel}>PROMIEŃ LOKALNY</Text><TextInput style={styles.input} value={radius} onChangeText={setRadius} placeholder="40" placeholderTextColor="#64748b" keyboardType="number-pad" /><Text style={styles.inputHint}>Kilometry od miasta bazowego użytkownika.</Text></>}
+          {category === 'local' && <><Text style={styles.fieldLabel}>PROMIEŃ LOKALNY</Text><TextInput style={styles.input} value={radius} onChangeText={setRadius} placeholder="30" editable={false} placeholderTextColor="#64748b" keyboardType="number-pad" /><Text style={styles.inputHint}>Zadania w promieniu 30 km od aktualnej lokalizacji.</Text></>}
           {error !== '' && <Text style={styles.error}>{error}</Text>}<TouchableOpacity style={[styles.createButton, saving && styles.disabledButton]} onPress={createTemplate} disabled={saving}><Text style={styles.createButtonText}>{saving ? 'ZAPISYWANIE...' : 'DODAJ CHALLENGE'}</Text></TouchableOpacity>
         </View>
         <SectionTitle label="BIBLIOTEKA MISJI" count={templates.length} />

@@ -8,7 +8,7 @@ from core.countries import normalize_country_code
 # ==========================
 # SCHEMATY DLA QUESTÓW
 # ==========================
-QuestCategory = Literal["daily", "local", "country", "world"]
+QuestCategory = Literal["daily", "local", "country", "world", "achievement"]
 QuestDifficulty = Literal["easy", "medium", "hard"]
 QuestStatus = Literal["active", "pending_review", "approved", "rejected", "expired", "completed"]
 UserRole = Literal["user", "moderator", "admin", "owner"]
@@ -18,6 +18,8 @@ class QuestBase(BaseModel):
     description: str = ""
     category: QuestCategory
     difficulty: QuestDifficulty
+    xp_reward: int = Field(default=100, ge=1, le=100000)
+    medal: Literal["bronze", "silver", "gold", "platinum"] | None = None
     country: str | None = None
     country_code: str | None = None
     city: str | None = None
@@ -71,6 +73,8 @@ class QuestTemplateBase(BaseModel):
     description: str = Field(min_length=10, max_length=500)
     category: QuestCategory
     difficulty: QuestDifficulty
+    xp_reward: int = Field(default=100, ge=1, le=100000)
+    medal: Literal["bronze", "silver", "gold", "platinum"] | None = None
     country: str | None = Field(default=None, max_length=100)
     country_code: str | None = None
     city: str | None = Field(default=None, max_length=100)
@@ -91,6 +95,8 @@ class QuestTemplateUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=10, max_length=500)
     category: QuestCategory | None = None
     difficulty: QuestDifficulty | None = None
+    xp_reward: int | None = Field(default=None, ge=1, le=100000)
+    medal: Literal["bronze", "silver", "gold", "platinum"] | None = None
     country: str | None = Field(default=None, max_length=100)
     country_code: str | None = None
     city: str | None = Field(default=None, max_length=100)
